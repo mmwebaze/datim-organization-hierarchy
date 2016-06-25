@@ -1,0 +1,1 @@
+UPDATE organisationunit set parentid = (SELECT organisationunitid from organisationunit where uid = %s) WHERE uid = %s;
