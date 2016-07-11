@@ -1,0 +1,7 @@
+SELECT organisationunitid FROM organisationUnit WHERE uid = %s;
+SELECT dv.dataelementid, dv.periodid, dv.categoryoptioncomboid, dv.attributeoptioncomboid, dv.value, dv.lastupdated,dv.storedby, dv.comment, dv.followup, dv.sourceid FROM datavalue dv INNER JOIN organisationunit ou on (dv.sourceid = ou.organisationunitid) WHERE ou.uid = %s;
+SELECT dv.dataelementid, dv.periodid, dv.categoryoptioncomboid, dv.attributeoptioncomboid, dv.value, dv.lastupdated,dv.sourceid FROM datavalue dv INNER JOIN organisationunit ou on (dv.sourceid = ou.organisationunitid) WHERE ou.uid = %s AND dv.dataelementid = %s AND dv.periodid = %s AND dv.categoryoptioncomboid = %s AND dv.attributeoptioncomboid = %s;
+INSERT INTO datavalue (dataelementid, periodid, sourceid, categoryoptioncomboid, attributeoptioncomboid, value, storedby, lastupdated) VALUES (%s,%s,%s,%s,%s,%s,%s);
+UPDATE datavalue SET value = %s, lastupdated = '%s' WHERE sourceid = %s AND dataelementid = %s AND periodid = %s AND categoryoptioncomboid = %s AND attributeoptioncomboid = %s AND sourceid = %s;
+DELETE FROM datavalue WHERE sourceid = %s;
+UPDATE organisationunit set parentid = (SELECT organisationunitid from organisationunit where uid = %s) WHERE uid = %s;

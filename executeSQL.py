@@ -1,6 +1,7 @@
 import psycopg2, json, sys, base64, urllib.request, os, argparse
 import sqlparse, csv
 from collections import namedtuple
+from datetime import datetime
 
 
 def cmpT(t1, t2):
@@ -57,26 +58,66 @@ def get_database_connection(secrets):
     return conn
 
 
-def get_sql_statements(sql_location, siteId, newParentId):
-
+def get_sql_statements(sql_location):
+    queries = []
     if os.path.isfile(sql_location) and os.access(sql_location, os.R_OK):
         file = open(sql_location, 'r')
         content = file.read()
-        sqlUpdate = (content %(newParentId, siteId))
-        print(sqlUpdate)
-        sql = filter(None,sqlparse.split(sqlUpdate))
-        #assert isinstance(sql, list)
-        return sql
+        sql = filter(None, sqlparse.split(content))
+        for query in sql:
+            queries.append(query)
+        return queries
     else:
         sys.exit('SQL file not found or not accessible')
 
 
-def execute_sql_statements(secrets,sql):
+def execute_sql_statements(secrets,sql, donar_uid, receptor_uid, type_operation):
+    print(type_operation.lower())
     conn = get_database_connection(secrets)
     cur = conn.cursor()
     try:
-        for command in sql:
-            cur.execute(command)
+        if type_operation.lower() == '\'relocation\'':
+            print('******* Relocating site *******')
+            print(sql[6] %(receptor_uid, donar_uid))
+            cur.execute(sql[6] %(receptor_uid, donar_uid))
+            conn.commit()
+        else:
+            #Supports 'LAST' operation only
+            receptor_src_id_sql = sql[0] % (receptor_uid)
+            cur.execute(receptor_src_id_sql)
+            src_id_row = cur.fetchone()
+            # for command in sql:
+            cur.execute(sql[1] % (donar_uid))
+            donar_rows = cur.fetchall()
+            # if donar doesn't have any data associated with it, then terminate no need to carryout merge operation
+            if cur.rowcount == 0:
+                print('No data to merge from donar site')
+                sys.exit()
+            '''For each donar row returned from table datavalue, check if there is a corresponding row with the same data from receptor site
+           i.e same dataelementid, periodid, categoryoptioncomboid and attributeoptioncomboid. If these rows are available, then just update
+           value otherwise insert each of donar rows data to receptor'''
+            for donar_row in donar_rows:
+                print(sql[2] % (receptor_uid, donar_row[0], donar_row[1], donar_row[2], donar_row[3]))
+
+                cur.execute(sql[2] % (receptor_uid, donar_row[0], donar_row[1], donar_row[2], donar_row[3]))
+                receptor_rows = cur.fetchall()
+
+                if cur.rowcount == 0:
+                    sqlR = (sql[3] % (donar_row[0], donar_row[1], src_id_row[0], donar_row[2], donar_row[3], donar_row[4],
+                                  "'" + donar_row[6] + "'", donar_row[5]))
+                    print(sqlR)
+                    cur.execute(sqlR)
+                else:
+                    for receptor_row in receptor_rows:
+                        print(receptor_row)
+                        # Compare Donar timestamp to Receptor timestamp. If donar timestamp greater, update receptor value and set lastupdated to now
+                        if donar_row[5] > receptor_row[5]:
+                            cur.execute(
+                            sql[4] % (donar_row[4], datetime.now(), receptor_row[6], receptor_row[0], receptor_row[1],
+                                      receptor_row[2], receptor_row[3], src_id_row[0]))
+                        # DELETE DONAR DATA
+            donar_delete_sql = (sql[5] % (donar_row[9],))
+            # cur.execute(donar_delete_sql)
             conn.commit()
             print(cur.rowcount)
     except psycopg2.Error as e:
@@ -123,13 +164,12 @@ def main(argv):
     parser.add_argument('-q', "--csv", help='Location of csv files with sites')
     args = parser.parse_args()
     secrets= load_secrets(args.secrets)
-    #sql = get_sql_statements(args.sql)
-    sqlFile = args.sql
+    sql_file = args.sql
     csv_file = read_csv_file(args.csv)
 
     for row in csv_file:
-        sql = get_sql_statements(sqlFile, row[1], row[3])
-        success = execute_sql_statements(secrets,sql)
+        sql = get_sql_statements(sql_file)
+        success = execute_sql_statements(secrets,sql, row[0],row[1], row[2])
         if success:
             clear_hibernate_cache(secrets)
 

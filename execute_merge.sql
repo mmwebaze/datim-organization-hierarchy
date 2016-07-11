@@ -1,0 +1,2 @@
+SELECT merge_organisationunits(%s,%s, %s);
+SELECT dv.dataelementid, dv.periodid, dv.categoryoptioncomboid, dv.attributeoptioncomboid, dv.value, dv.lastupdated,dv.storedby FROM datavalue dv INNER JOIN organisationunit ou on (dv.sourceid = ou.organisationunitid) WHERE ou.uid = %s;

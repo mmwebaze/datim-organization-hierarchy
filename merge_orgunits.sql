@@ -202,7 +202,7 @@ WHERE organisationunitid = (select organisationunitid
 	from organisationunit where uid = %L )',dest_uid,source_uid);
 
 --DELETE all records for the source
-EXECUTE format('SELECT * FROM delete_site_with_data( %L )',source_uid);
+-- EXECUTE format('SELECT * FROM delete_site_with_data( %L )',source_uid);
 
 
 RETURN 1;
